@@ -1,0 +1,24 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2025-09-19T23:12:47+09:00",
+  "id": "assembly",
+  "duration": 0,
+  "title": "Go アセンブリ Codelab",
+  "summary": "Introduction to Go Assembly",
+  "source": "./assembly/index.md",
+  "theme": "",
+  "status": [
+    "published"
+  ],
+  "category": [
+    "codelab",
+    "markdown"
+  ],
+  "tags": [
+    "web"
+  ],
+  "url": "assembly"
+}

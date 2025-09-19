@@ -5,6 +5,8 @@ markdown_files=(
     "./generics/index.md"
     "./delve/delve.md"
     "./suggestedfix/index.md"
+    "./assembly/index.md"
+    "./toolexec/index.md"
 )
 
 # Loop through each Markdown file and process with claat

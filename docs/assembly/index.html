@@ -1,0 +1,278 @@
+
+<!doctype html>
+
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="theme-color" content="#4F7DC9">
+  <meta charset="UTF-8">
+  <title>Go アセンブリ Codelab</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro:400|Roboto:400,300,400italic,500,700|Roboto+Mono">
+  <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://storage.googleapis.com/claat-public/codelab-elements.css">
+  <style>
+    .success {
+      color: #1e8e3e;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <google-codelab-analytics gaid="UA-49880327-14" ga4id=""></google-codelab-analytics>
+  <google-codelab codelab-gaid=""
+                  codelab-ga4id=""
+                  id="assembly"
+                  title="Go アセンブリ Codelab"
+                  environment="web"
+                  feedback-link="">
+    
+      <google-codelab-step label="学習目標" duration="0">
+        <ul>
+<li>Go コードがどのようなアセンブリに変換されるか理解する</li>
+<li>Go アセンブリ記法の基本を習得する</li>
+<li>簡単な関数をアセンブリで実装できるようになる</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="📋 進め方" duration="0">
+        <ol type="1">
+<li>各ステップの「学習内容」と「ゴール」を読みます</li>
+<li>Step 1 では <code>make</code> コマンドで生成されるアセンブリを観察します</li>
+<li>Step 2 では <code>skeleton/step2/asm_amd64.s</code> の TODO を実装します</li>
+<li>テストで動作を確認：<code>go test</code></li>
+<li>詰まったら <code>solution/</code> の完成版を参照します</li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Go のアセンブリについて" duration="0">
+        <h2 is-upgraded>Go アセンブリとは</h2>
+<p>Go は独自のアセンブリ記法を使用します：</p>
+<ul>
+<li>Plan 9 アセンブラをベースに Go 用に拡張された記法</li>
+<li>Intel や AT&amp;T 記法とは異なる構文</li>
+<li>疑似レジスタ（FP, SP, SB, PC）による抽象化</li>
+<li>プラットフォームに依存しない記述</li>
+</ul>
+<h2 is-upgraded>なぜ Go アセンブリを学ぶのか</h2>
+<ol type="1">
+<li><strong>標準ライブラリの理解</strong>: runtime, syncなどでは頻出します。特にgoroutineをはじめとしたGoランタイムの実装ではクロスプラットフォーム実現のためにほぼアセンブリで記述されています。</li>
+<li><strong>Go の内部動作の理解</strong>: コンパイラがどのようなコードを生成するか学ぶ</li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Step 1: アセンブリを読む" duration="0">
+        <h2 is-upgraded>ゴール</h2>
+<p>Go コードから生成されるアセンブリを読んで理解できるようになる</p>
+<h2 is-upgraded>学習内容</h2>
+<p>Go コンパイラが生成するアセンブリを観察し、以下を理解します：</p>
+<ul>
+<li>関数の呼び出し規約</li>
+<li>レジスタの使い方</li>
+<li>スタックフレームの構造</li>
+</ul>
+<h2 is-upgraded>基本的な命令</h2>
+<table>
+<tr><td colspan="1" rowspan="1"><p>命令</p>
+</td><td colspan="1" rowspan="1"><p>説明</p>
+</td><td colspan="1" rowspan="1"><p>例</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>MOVQ</p>
+</td><td colspan="1" rowspan="1"><p>64ビット値の移動</p>
+</td><td colspan="1" rowspan="1"><p><code>MOVQ AX, BX</code> (AX → BX)</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>ADDQ</p>
+</td><td colspan="1" rowspan="1"><p>64ビット加算</p>
+</td><td colspan="1" rowspan="1"><p><code>ADDQ BX, AX</code> (AX += BX)</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>SUBQ</p>
+</td><td colspan="1" rowspan="1"><p>64ビット減算</p>
+</td><td colspan="1" rowspan="1"><p><code>SUBQ BX, AX</code> (AX -= BX)</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>RET</p>
+</td><td colspan="1" rowspan="1"><p>関数から戻る</p>
+</td><td colspan="1" rowspan="1"><p><code>RET</code></p>
+</td></tr>
+</table>
+<h2 is-upgraded>疑似レジスタ</h2>
+<table>
+<tr><td colspan="1" rowspan="1"><p>レジスタ</p>
+</td><td colspan="1" rowspan="1"><p>説明</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>FP</p>
+</td><td colspan="1" rowspan="1"><p>Frame Pointer - 引数と戻り値にアクセス</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>SP</p>
+</td><td colspan="1" rowspan="1"><p>Stack Pointer - ローカル変数にアクセス</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>SB</p>
+</td><td colspan="1" rowspan="1"><p>Static Base - グローバル変数にアクセス</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>PC</p>
+</td><td colspan="1" rowspan="1"><p>Program Counter - 次の命令のアドレス</p>
+</td></tr>
+</table>
+<h2 is-upgraded>実践</h2>
+<p><code>skeleton/step1/</code> ディレクトリで以下のコマンドを実行：</p>
+<pre><code language="language-bash" class="language-bash">cd skeleton/step1
+
+# add関数のアセンブリを見る
+make add
+</code></pre>
+<h2 is-upgraded>観察ポイント</h2>
+<h3 is-upgraded>1. add関数</h3>
+<pre><code language="language-go" class="language-go">func add(a, b int) int {
+    return a + b
+}
+</code></pre>
+<p>実際に生成されるアセンブリ（最適化なし <code>-N -l</code>）：</p>
+<pre><code language="language-asm" class="language-asm">main.add STEXT nosplit size=39 args=0x10 locals=0x10
+    TEXT    main.add(SB), NOSPLIT|ABIInternal, $16-16
+    PUSHQ   BP                    // ベースポインタを保存
+    MOVQ    SP, BP                // 現在のスタックポインタを保存
+    SUBQ    $8, SP                // スタック領域を確保
+    MOVQ    AX, main.a+24(SP)    // 引数a（AXレジスタ経由）をスタックに保存
+    MOVQ    BX, main.b+32(SP)    // 引数b（BXレジスタ経由）をスタックに保存
+    MOVQ    $0, main.~r0(SP)      // 戻り値領域を初期化
+    ADDQ    BX, AX                // AX = AX + BX (実際の加算)
+    MOVQ    AX, main.~r0(SP)      // 結果をスタックの戻り値領域に保存
+    ADDQ    $8, SP                // スタック領域を解放
+    POPQ    BP                    // ベースポインタを復元
+    RET                           // 関数から戻る
+</code></pre>
+<p><strong>重要なポイント</strong>：</p>
+<ul>
+<li>Go 1.17以降、ABIInternal により引数は AX, BX レジスタで渡される</li>
+<li>スタック操作（PUSHQ/POPQ）で関数の開始/終了を管理</li>
+<li>最適化を無効にすると、中間的なスタック操作が見える</li>
+</ul>
+<h3 is-upgraded>2. sub関数</h3>
+<pre><code language="language-go" class="language-go">func sub(a, b int) int {
+    return a - b
+}
+</code></pre>
+<p>生成されるアセンブリでは、ADDQ の代わりに SUBQ 命令が使われます：</p>
+<pre><code language="language-asm" class="language-asm">main.sub STEXT nosplit size=39 args=0x10 locals=0x10
+    TEXT    main.sub(SB), NOSPLIT|ABIInternal, $16-16
+    // ... 前処理は add と同じ ...
+    SUBQ    BX, AX                // AX = AX - BX (引き算)
+    // ... 後処理は add と同じ ...
+    RET
+</code></pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Step 2: アセンブリで関数を書く" duration="0">
+        <h2 is-upgraded>ゴール</h2>
+<p>Go アセンブリで簡単な関数を実装できるようになる</p>
+<h2 is-upgraded>学習内容</h2>
+<p>実際にアセンブリで関数を書いて、Go から呼び出す方法を学びます。</p>
+<h2 is-upgraded>関数の構造</h2>
+<pre><code language="language-asm" class="language-asm">TEXT ·FuncName(SB), NOSPLIT, $0-24
+    // 関数の実装
+    RET
+</code></pre>
+<ul>
+<li><code>TEXT</code>: 関数定義の開始</li>
+<li><code>·FuncName</code>: 関数名（中点 · に注意）</li>
+<li><code>(SB)</code>: Static Base からの相対</li>
+<li><code>NOSPLIT</code>: スタック拡張チェックをスキップ</li>
+<li><code>$0-24</code>: スタックサイズ-引数と戻り値のサイズ</li>
+</ul>
+<h2 is-upgraded>実装タスク</h2>
+<p><code>skeleton/step2/asm_amd64.s</code> の TODO を実装してください。</p>
+<h3 is-upgraded>1. Add関数の実装</h3>
+<p>2つの int64 を足し算する関数を実装：</p>
+<pre><code language="language-asm" class="language-asm">// func Add(a, b int64) int64
+TEXT ·Add(SB), NOSPLIT, $0-24
+    // TODO: 実装
+    RET
+</code></pre>
+<p>ヒント：</p>
+<ul>
+<li><code>a</code> は <code>a+0(FP)</code> でアクセス</li>
+<li><code>b</code> は <code>b+8(FP)</code> でアクセス（int64 は 8バイト）</li>
+<li>戻り値は <code>ret+16(FP)</code> に書き込む</li>
+</ul>
+<h3 is-upgraded>2. Sub関数の実装</h3>
+<p>2つの int64 を引き算する関数を実装：</p>
+<pre><code language="language-asm" class="language-asm">// func Sub(a, b int64) int64
+TEXT ·Sub(SB), NOSPLIT, $0-24
+    // TODO: 実装
+    RET
+</code></pre>
+<p>ヒント：</p>
+<ul>
+<li><code>SUBQ</code> 命令で引き算（AX = AX - BX）</li>
+</ul>
+<h2 is-upgraded>テストの実行</h2>
+<pre><code language="language-bash" class="language-bash">cd skeleton/step2
+
+# 各関数のテスト
+go test -v -run TestAdd
+go test -v -run TestSub
+
+# すべてのテスト
+go test -v
+</code></pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="まとめ" duration="0">
+        <p>このコードラボで学んだこと：</p>
+<h2 is-upgraded>📚 Step 1: アセンブリを読む</h2>
+<ul>
+<li>Go コンパイラが生成するアセンブリの構造</li>
+<li>Go アセンブリ記法の基本（MOVQ, ADDQ, RET など）</li>
+<li>疑似レジスタ（FP, SP）の役割</li>
+</ul>
+<h2 is-upgraded>📚 Step 2: アセンブリを書く</h2>
+<ul>
+<li>TEXT ディレクティブによる関数定義</li>
+<li>引数と戻り値へのアクセス方法</li>
+<li>基本的な算術演算（加算・減算）の実装</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="実践的な応用" duration="0">
+        <p>学んだ知識は以下の場面で活用できます：</p>
+<ul>
+<li><strong>標準ライブラリの理解</strong><ul>
+<li>Go schedulerの実装理解</li>
+<li>math、syncのようなランタイムレベルでの操作を必要とするライブラリの理解</li>
+</ul>
+</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="参考資料" duration="0">
+        <ul>
+<li><a href="https://go.dev/doc/asm" target="_blank">A Quick Guide to Go&#39;s Assembler</a> - Go 公式のアセンブリガイド</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+  </google-codelab>
+
+  <script src="https://storage.googleapis.com/claat-public/native-shim.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/custom-elements.min.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/prettify.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/codelab-elements.js"></script>
+  <script src="//support.google.com/inapp/api.js"></script>
+
+</body>
+</html>
