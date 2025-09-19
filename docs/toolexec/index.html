@@ -1,0 +1,262 @@
+
+<!doctype html>
+
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="theme-color" content="#4F7DC9">
+  <meta charset="UTF-8">
+  <title>Go toolexec Codelab</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro:400|Roboto:400,300,400italic,500,700|Roboto+Mono">
+  <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://storage.googleapis.com/claat-public/codelab-elements.css">
+  <style>
+    .success {
+      color: #1e8e3e;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <google-codelab-analytics gaid="UA-49880327-14" ga4id=""></google-codelab-analytics>
+  <google-codelab codelab-gaid=""
+                  codelab-ga4id=""
+                  id="toolexec"
+                  title="Go toolexec Codelab"
+                  environment="web"
+                  feedback-link="">
+    
+      <google-codelab-step label="進め方" duration="0">
+        <ol type="1">
+<li>各ステップの「学習内容」と「ゴール」を確認してください</li>
+<li><code>skeleton/stepX/main.go</code> の TODO コメントを参考にして実装してください</li>
+<li>実装したら<code>testdata/sample.go</code>に実装したプログラムをtoolexecフラグで渡して動作を確認します</li>
+</ol>
+<pre><code language="language-bash" class="language-bash">go run skeleton/stepX/main.go
+go build -toolexec=&#34;$PWD/skeleton/stepX/main&#34; testdata/sample.go
+</code></pre>
+<ol type="1" start="4">
+<li>わからない場合は「ヒント」を参照してください</li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Step 1: toolexec で動作するプログラムを実装する" duration="0">
+        <h2 is-upgraded>ゴール</h2>
+<p>元のツールをそのまま実行する toolexec プログラムが動作することを確認する</p>
+<h2 is-upgraded>学習内容</h2>
+<p><code>-toolexec</code> フラグを使うと、Go のビルドツール（compile, link など）の実行に任意のプログラムを適用することができます。例えば<a href="https://github.com/DataDog/orchestrion" target="_blank">DataDog/orchestrion</a>や<a href="https://github.com/alibaba/loongsuite-go-agent" target="_blank">alibaba/loongsuite-go-agent</a>ではビルド前に自動計装のためのコードを差し込むために使用しています。</p>
+<p>最初のステップでは、単に元のツールを呼び出すだけの透過的なラッパーを作ります。</p>
+<h2 is-upgraded>toolexec の基本構造</h2>
+<pre><code>go build -toolexec=&#34;mytool&#34; main.go
+    ↓
+mytool /path/to/compile [compile の引数...]
+    ↓
+mytool /path/to/link [link の引数...]
+</code></pre>
+<p><strong>toolexec プログラムが受け取る引数：</strong></p>
+<ul>
+<li><code>os.Args[0]</code>: toolexec プログラム自身のパス</li>
+<li><code>os.Args[1]</code>: 実行するツール（compile, link など）のパス</li>
+<li><code>os.Args[2:]</code>: ツールに渡す引数</li>
+</ul>
+<h2 is-upgraded>実装タスク</h2>
+<p><code>skeleton/step1/main.go</code> を開いて、TODO コメントの箇所を実装してください。</p>
+<p>必要な実装：</p>
+<ol type="1">
+<li><code>exec.Command</code> で元のツールを実行するコマンドを作成</li>
+<li>標準出力と標準エラー出力を設定</li>
+<li>コマンドを実行</li>
+<li>終了コードを適切に処理</li>
+</ol>
+<h2 is-upgraded>実行して確認</h2>
+<pre><code language="language-bash" class="language-bash"># Step 1 のプログラムをビルド
+cd skeleton/step1
+go build -o mytoolexec main.go
+
+# toolexec として使用
+go build -toolexec=&#34;$PWD/mytoolexec&#34; ../../testdata/sample.go
+
+# 正常にビルドできれば成功！
+./sample
+</code></pre>
+<p>期待される出力：</p>
+<pre><code>=== Sample Program ===
+Hello, Gopher Welcome to Go Conference 2025!
+</code></pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Step 2: ビルドプロセスを観察する" duration="0">
+        <h2 is-upgraded>ゴール</h2>
+<p>ビルドで実行されるツール（compile、link など）を可視化する</p>
+<h2 is-upgraded>学習内容</h2>
+<p>Go のビルドは複数のツールが連携して動作します：</p>
+<ul>
+<li><strong>compile</strong>: .go ファイルを .o ファイルにコンパイル</li>
+<li><strong>link</strong>: .o ファイルを実行ファイルにリンク</li>
+</ul>
+<p>toolexec を使用して<code>go build</code>で実際にどのようなツールが内部で動いているか観察してみましょう。</p>
+<h2 is-upgraded>観察したい情報</h2>
+<ol type="1">
+<li><strong>どのツールが呼ばれたか</strong>: compile? link? その他?</li>
+<li><strong>何をビルドしているか</strong>: main パッケージ？標準ライブラリ？</li>
+<li><strong>実行順序</strong>: どの順番でツールが動くか？</li>
+</ol>
+<h2 is-upgraded>使える情報源</h2>
+<ul>
+<li><code>os.Args[1]</code>: 実行されるツールのパス（例: <code>/usr/local/go/pkg/tool/darwin_amd64/compile</code>）</li>
+<li><code>TOOLEXEC_IMPORTPATH</code>: 環境変数。現在ビルド中のパッケージ名</li>
+</ul>
+<h2 is-upgraded>実装タスク</h2>
+<p><code>skeleton/step2/main.go</code> を開いて、以下を実装してください：</p>
+<pre><code language="language-go" class="language-go">// 1. ツール名を取得（パスから最後の部分だけ）
+toolName := filepath.Base(toolPath)
+
+// 2. ビルド対象のパッケージ名を環境変数から取得
+pkg := os.Getenv(&#34;TOOLEXEC_IMPORTPATH&#34;)
+if pkg == &#34;&#34; {
+    pkg = &#34;(unknown)&#34;
+}
+
+// 3. 何が起きているか表示
+fmt.Fprintf(os.Stderr, &#34;[TOOLEXEC] Running %s for package %s\n&#34;, toolName, pkg)
+</code></pre>
+<h2 is-upgraded>実行して確認</h2>
+<pre><code language="language-bash" class="language-bash"># Step 2 のプログラムをビルド
+cd skeleton/step2
+go build -o mytoolexec main.go
+
+# toolexec として使用（-a で全パッケージを再ビルド）
+go build -a -toolexec=&#34;$PWD/mytoolexec&#34; ../../testdata/sample.go 2&gt;&amp;1 | grep TOOLEXEC
+</code></pre>
+<p>期待される出力例：</p>
+<pre><code># internal/unsafeheader
+[TOOLEXEC] Running compile for package internal/unsafeheader
+# internal/msan
+[TOOLEXEC] Running compile for package internal/msan
+</code></pre>
+<h2 is-upgraded>環境を綺麗にする</h2>
+<p>このままだとビルドキャッシュが残っているため、別プログラムをビルドする際にキャッシュヒットすると他のプログラムでもプリントされてしまいます。</p>
+<p>一度下記のコマンドでキャッシュを削除することをお勧めします</p>
+<pre><code>go clean -cache
+</code></pre>
+<h2 is-upgraded>この観察から分かること</h2>
+<p>実行結果を見ると：</p>
+<ol type="1">
+<li><strong>compile が先、link が後</strong>: .go → .o → 実行ファイルの流れ</li>
+<li><strong>パッケージごとにコンパイル</strong>: main パッケージは個別にコンパイルされる</li>
+<li><strong>link は最後に1回だけ</strong>: すべての .o ファイルをまとめる</li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Step 3: ビルドにGopherを仕込む" duration="0">
+        <h2 is-upgraded>Go Gopher ASCII アートを作ろう</h2>
+<p>まずは、表示したい Gopher を準備しましょう。 思いつかない方は下記のGopherを使用してください。</p>
+<pre><code language="language-go" class="language-go">// メインの Gopher
+const gopher = `
+   D;;:;;:;;:;;:;:;:;;:;:;:;:;;:;;:;;:;;:;z
+   $;:;:;::;::;:;;:;;:;;:;;:;;::;;::;;:;;;I
+  .I;;:;;:;;:;;::;;:;:;:;;:;:;;:;:;:;::;;:I
+  ,&lt;;;::;:;;::;;:;;;;;;;;:;::;;:;;:;;;:;;;I
+  ,(;;;:;::;:;;::;;j=1J71&lt;;;;:;:;;::;:;:;:I
+  J;;:;;;:;;::;;;;:r  ] .&gt;;;;:;:;:;;:;:;;;r
+  z;;::;:;;:;;:;;j=&lt;?75?7~?I;;:;;:;;;:;:;&lt;]
+  (&lt;;;;;;;:;;;;;;?+~(J-J-_(3;;;;;;::;;:;;+\
+  ,(;:;:;j/7!&#39;&#39;??1+?MMMMM1+?7771+&lt;;;;:;;:j
+  .P;;;;J!..       4;&lt;&lt;iJ        .4&lt;;;:;;2 
+.3;J&lt;;;j\(M#Q       D;&lt;2.MM5.      1:;;;j73,
+$;jMN&lt;;?|,WH3       $;:t.MM#       ,(;;jP;;?|
+4&lt;;T9TJ;?.        .J;;;?&amp;         .t;;jM@:;+%
+ (1++++Y+;?C+...J7&lt;;;;:;;?i..  ..J&gt;;jv&lt;;;;j=
+         .71+&lt;;;;;;;;:;;;;;;;;;;&lt;+J=  ?77!
+             &#39;_?771+++++++++?77!
+`
+</code></pre>
+<h2 is-upgraded>実行して確認</h2>
+<h3 is-upgraded>1. Gopher とプログレスバーを見ながらビルド</h3>
+<pre><code language="language-bash" class="language-bash">cd skeleton/step3
+go build -o mytoolexec main.go
+go build -toolexec=&#34;$PWD/mytoolexec&#34; ../../testdata/sample.go -o sample
+</code></pre>
+<p>出力例：</p>
+<pre><code>=== Go Build with Gopher ===
+   D;;:;;:;;:;;:;:;:;;:;:;:;:;;:;;:;;:;;:;z
+   $;:;:;::;::;:;;:;;:;;:;;:;;::;;::;;:;;;I
+  .I;;:;;:;;:;;::;;:;:;:;;:;:;;:;:;:;::;;:I
+  ,&lt;;;::;:;;::;;:;;;;;;;;:;::;;:;;:;;;:;;;I
+  ,(;;;:;::;:;;::;;j=1J71&lt;;;;:;:;;::;:;:;:I
+  J;;:;;;:;;::;;;;:r  ] .&gt;;;;:;:;:;;:;:;;;r
+  z;;::;:;;:;;:;;j=&lt;?75?7~?I;;:;;:;;;:;:;&lt;]
+  (&lt;;;;;;;:;;;;;;?+~(J-J-_(3;;;;;;::;;:;;+\
+  ,(;:;:;j/7!&#39;&#39;??1+?MMMMM1+?7771+&lt;;;;:;;:j
+  .P;;;;J!..       4;&lt;&lt;iJ        .4&lt;;;:;;2 
+.3;J&lt;;;j\(M#Q       D;&lt;2.MM5.      1:;;;j73,
+$;jMN&lt;;?|,WH3       $;:t.MM#       ,(;;jP;;?|
+4&lt;;T9TJ;?.        .J;;;?&amp;         .t;;jM@:;+%
+ (1++++Y+;?C+...J7&lt;;;;:;;?i..  ..J&gt;;jv&lt;;;;j=
+         .71+&lt;;;;;;;;:;;;;;;;;;;&lt;+J=  ?77!
+             &#39;_?771+++++++++?77!
+
+コンパイル中 ██████████████████████████████ ✅
+リンク中 ██████████████████████████████ ✅
+
+🎉 ビルド完了！
+</code></pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="まとめ" duration="0">
+        
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="実践的な応用" duration="0">
+        <p>学んだ技術は以下のような場面で活用できます：</p>
+<ol type="1">
+<li><strong>ビルド時間の測定</strong><ul>
+<li>各パッケージのコンパイル時間を記録</li>
+<li>ボトルネックの特定</li>
+</ul>
+</li>
+<li><strong>セキュリティ強化</strong><ul>
+<li>デバッグ情報の自動除去</li>
+<li>ビルド時のセキュリティチェック</li>
+</ul>
+</li>
+<li><strong>CI/CD パイプライン</strong><ul>
+<li>ビルド情報の自動埋め込み</li>
+<li>環境別の最適化設定</li>
+</ul>
+</li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="参考資料" duration="0">
+        <ul>
+<li><a href="https://pkg.go.dev/cmd/go#hdr-Compile_packages_and_dependencies" target="_blank">Go build documentation</a></li>
+<li><a href="https://go.dev/doc/toolchain" target="_blank">Go toolchain internals</a></li>
+</ul>
+
+
+      </google-codelab-step>
+    
+  </google-codelab>
+
+  <script src="https://storage.googleapis.com/claat-public/native-shim.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/custom-elements.min.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/prettify.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/codelab-elements.js"></script>
+  <script src="//support.google.com/inapp/api.js"></script>
+
+</body>
+</html>

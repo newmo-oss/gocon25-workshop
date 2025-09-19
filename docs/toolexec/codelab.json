@@ -1,0 +1,24 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2025-09-19T21:37:25+09:00",
+  "id": "toolexec",
+  "duration": 0,
+  "title": "Go toolexec Codelab",
+  "summary": "Deep Dive into toolexec",
+  "source": "./toolexec/index.md",
+  "theme": "",
+  "status": [
+    "published"
+  ],
+  "category": [
+    "codelab",
+    "markdown"
+  ],
+  "tags": [
+    "web"
+  ],
+  "url": "toolexec"
+}
